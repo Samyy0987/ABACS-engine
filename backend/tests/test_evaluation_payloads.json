@@ -1,0 +1,92 @@
+{
+  "description": "ABAC Policy Decision Point (PDP) Test Evaluation Payloads",
+  "endpoint": "POST /api/evaluate",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "scenarios": [
+    {
+      "id": "scenario-01-permit",
+      "name": "SecOps Admin Full Cluster Access (PERMIT)",
+      "target_policy": "pol-001",
+      "expected_decision": "PERMIT",
+      "expected_matched_policies": ["pol-001"],
+      "expected_reason": "Permitted by policy: pol-001",
+      "payload": {
+        "request_id": "req-test-eval-permit-001",
+        "subject_identifier": "test_alice_secops",
+        "resource_key": "test-k8s-cluster-alpha",
+        "action": "READ",
+        "subject_attributes": {
+          "role": "SecOps",
+          "clearanceLevel": "TopSecret",
+          "mfaEnforced": true,
+          "department": "Security"
+        },
+        "resource_attributes": {
+          "classification": "Critical",
+          "type": "Cluster_Node",
+          "environment": "staging-test"
+        },
+        "environment_attributes": {
+          "ipRange": "10.240.0.0/16"
+        }
+      }
+    },
+    {
+      "id": "scenario-02-explicit-deny",
+      "name": "Production Database Modification Outside Change Window (EXPLICIT DENY)",
+      "target_policy": "pol-003",
+      "expected_decision": "DENY",
+      "expected_matched_policies": ["pol-003"],
+      "expected_reason": "Explicitly denied by policy: pol-003",
+      "payload": {
+        "request_id": "req-test-eval-deny-002",
+        "subject_identifier": "test_alice_secops",
+        "resource_key": "test-prod-db-primary",
+        "action": "DELETE",
+        "subject_attributes": {
+          "role": "SecOps",
+          "clearanceLevel": "TopSecret",
+          "mfaEnforced": true,
+          "department": "Security"
+        },
+        "resource_attributes": {
+          "classification": "Production_Database",
+          "type": "Relational_Database"
+        },
+        "environment_attributes": {
+          "allowedHours": "08:00 - 18:00 UTC",
+          "enforceChangeWindow": true
+        }
+      }
+    },
+    {
+      "id": "scenario-03-default-deny",
+      "name": "Guest User Unauthorized Cluster Access (DEFAULT DENY)",
+      "target_policy": null,
+      "expected_decision": "DENY",
+      "expected_matched_policies": [],
+      "expected_reason": "No matching policy found: default deny enforced",
+      "payload": {
+        "request_id": "req-test-eval-default-deny-003",
+        "subject_identifier": "test_bob_guest",
+        "resource_key": "test-k8s-cluster-alpha",
+        "action": "READ",
+        "subject_attributes": {
+          "role": "Guest",
+          "clearanceLevel": "Public",
+          "mfaEnforced": false
+        },
+        "resource_attributes": {
+          "classification": "Critical",
+          "type": "Cluster_Node",
+          "environment": "staging-test"
+        },
+        "environment_attributes": {
+          "ipRange": "192.168.1.100"
+        }
+      }
+    }
+  ]
+}
