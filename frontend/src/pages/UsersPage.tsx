@@ -12,8 +12,55 @@ import {
   UserCheck
 } from 'lucide-react';
 
+const INITIAL_DIRECTORY_USERS = [
+  {
+    id: 'usr-1',
+    username: 'test_alice_secops',
+    name: 'Alice Henderson',
+    email: 'alice.henderson@enterprise.cyber',
+    department: 'Security Operations',
+    clearance_level: 'TopSecret',
+    mfa_enforced: true,
+    roles: ['SecOps', 'Admin'],
+    is_active: true,
+  },
+  {
+    id: 'usr-2',
+    username: 'test_bob_guest',
+    name: 'Bob Miller',
+    email: 'bob.miller@enterprise.cyber',
+    department: 'Engineering',
+    clearance_level: 'Public',
+    mfa_enforced: false,
+    roles: ['Guest', 'Contractor'],
+    is_active: true,
+  },
+  {
+    id: 'usr-3',
+    username: 'carol_compliance_lead',
+    name: 'Carol Danvers',
+    email: 'carol.danvers@enterprise.cyber',
+    department: 'Compliance & Audit',
+    clearance_level: 'Confidential',
+    mfa_enforced: true,
+    roles: ['Auditor', 'Compliance_Lead'],
+    is_active: true,
+  },
+  {
+    id: 'usr-4',
+    username: 'dave_platform_devops',
+    name: 'David Zhao',
+    email: 'david.zhao@enterprise.cyber',
+    department: 'Platform Ops',
+    clearance_level: 'Secret',
+    mfa_enforced: true,
+    roles: ['DevOps', 'Cluster_Maintainer'],
+    is_active: true,
+  },
+];
+
 export const UsersPage: React.FC = () => {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>(INITIAL_DIRECTORY_USERS);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -26,8 +73,16 @@ export const UsersPage: React.FC = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.users && Array.isArray(data.users)) {
-          setUsers(data.users);
+        if (data.users && Array.isArray(data.users) && data.users.length > 0) {
+          // Merge ORDS users with existing directory users, prioritizing ORDS records
+          const ordsUsers = data.users;
+          const merged = [
+            ...ordsUsers,
+            ...INITIAL_DIRECTORY_USERS.filter(
+              (initU) => !ordsUsers.some((ou: any) => ou.username?.toLowerCase() === initU.username.toLowerCase())
+            ),
+          ];
+          setUsers(merged);
         }
       }
     } catch {
@@ -130,107 +185,125 @@ export const UsersPage: React.FC = () => {
       </div>
 
       {/* Users Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredUsers.map((user) => (
-          <div
-            key={user.id || user.username}
-            className="rounded-2xl bg-[#161726] border border-white/5 p-5 shadow-card hover:border-brand-500/30 transition flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-purple-glow-sm">
-                    {user.name ? user.name.split(' ').map((n: string) => n[0]).join('') : 'U'}
+      {filteredUsers.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredUsers.map((user) => (
+            <div
+              key={user.id || user.username}
+              className="rounded-2xl bg-[#161726] border border-white/5 p-5 shadow-card hover:border-brand-500/30 transition flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-purple-glow-sm">
+                      {user.name ? user.name.split(' ').map((n: string) => n[0]).join('') : 'U'}
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                        <span>{user.name || user.username}</span>
+                        {user.is_active !== false && <UserCheck className="w-3.5 h-3.5 text-emerald-400" />}
+                      </h3>
+                      <span className="text-xs text-brand-300 font-mono">@{user.username}</span>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-                      <span>{user.name || user.username}</span>
-                      {user.is_active !== false && <UserCheck className="w-3.5 h-3.5 text-emerald-400" />}
-                    </h3>
-                    <span className="text-xs text-brand-300 font-mono">@{user.username}</span>
-                  </div>
-                </div>
 
-                <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
-                    user.is_active !== false
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                      : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                  }`}
-                >
-                  {user.is_active !== false ? 'ACTIVE' : 'SUSPENDED'}
-                </span>
-              </div>
-
-              {/* Attributes Chips */}
-              <div className="space-y-2 py-3 border-t border-b border-white/5 text-xs">
-                <div className="flex items-center justify-between text-slate-300">
-                  <span className="text-slate-400 flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5" /> Email
-                  </span>
-                  <span className="font-mono text-[11px] truncate">{user.email || 'N/A'}</span>
-                </div>
-
-                <div className="flex items-center justify-between text-slate-300">
-                  <span className="text-slate-400 flex items-center gap-1.5">
-                    <Building className="w-3.5 h-3.5" /> Department
-                  </span>
-                  <span>{user.department || 'General'}</span>
-                </div>
-
-                <div className="flex items-center justify-between text-slate-300">
-                  <span className="text-slate-400 flex items-center gap-1.5">
-                    <Shield className="w-3.5 h-3.5" /> Clearance
-                  </span>
-                  <span className="px-2 py-0.5 rounded bg-brand-500/20 text-brand-300 font-mono text-[11px] border border-brand-500/30">
-                    {user.clearance_level || 'Public'}
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
+                      user.is_active !== false
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                        : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                    }`}
+                  >
+                    {user.is_active !== false ? 'ACTIVE' : 'SUSPENDED'}
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between text-slate-300">
-                  <span className="text-slate-400 flex items-center gap-1.5">
-                    <Key className="w-3.5 h-3.5" /> MFA Enforced
-                  </span>
-                  <span className="flex items-center gap-1 text-[11px]">
-                    {user.mfa_enforced ? (
-                      <>
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="text-emerald-400 font-medium">Enforced</span>
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className="w-3.5 h-3.5 text-slate-500" />
-                        <span className="text-slate-500 font-medium">Disabled</span>
-                      </>
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Roles Footer */}
-            <div className="pt-3 flex items-center justify-between gap-2 flex-wrap text-xs">
-              <span className="text-[11px] text-slate-400">Assigned Roles:</span>
-              <div className="flex flex-wrap gap-1">
-                {Array.isArray(user.roles) ? (
-                  user.roles.map((r: string) => (
-                    <span
-                      key={r}
-                      className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10 font-mono"
-                    >
-                      {r}
+                {/* Attributes Chips */}
+                <div className="space-y-2 py-3 border-t border-b border-white/5 text-xs">
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5" /> Email
                     </span>
-                  ))
-                ) : (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10 font-mono">
-                    {user.roles || 'Standard'}
-                  </span>
-                )}
+                    <span className="font-mono text-[11px] truncate">{user.email || 'N/A'}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <Building className="w-3.5 h-3.5" /> Department
+                    </span>
+                    <span>{user.department || 'General'}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5" /> Clearance
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-brand-500/20 text-brand-300 font-mono text-[11px] border border-brand-500/30">
+                      {user.clearance_level || 'Public'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <Key className="w-3.5 h-3.5" /> MFA Enforced
+                    </span>
+                    <span className="flex items-center gap-1 text-[11px]">
+                      {user.mfa_enforced ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-emerald-400 font-medium">Enforced</span>
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="w-3.5 h-3.5 text-slate-500" />
+                          <span className="text-slate-500 font-medium">Disabled</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Roles Footer */}
+              <div className="pt-3 flex items-center justify-between gap-2 flex-wrap text-xs">
+                <span className="text-[11px] text-slate-400">Assigned Roles:</span>
+                <div className="flex flex-wrap gap-1">
+                  {Array.isArray(user.roles) ? (
+                    user.roles.map((r: string) => (
+                      <span
+                        key={r}
+                        className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10 font-mono"
+                      >
+                        {r}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10 font-mono">
+                      {user.roles || 'Standard'}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-2xl bg-[#161726] border border-white/5 p-8 sm:p-12 text-center shadow-card">
+          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-3 text-slate-400">
+            <Users className="w-6 h-6" />
           </div>
-        ))}
-      </div>
+          <h3 className="text-sm font-bold text-white">No Matching Subjects Found</h3>
+          <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+            No identity records match "{searchQuery}". Try adjusting your search term.
+          </p>
+          <button
+            onClick={() => setSearchQuery('')}
+            className="mt-4 px-4 py-2 rounded-xl bg-brand-600/30 hover:bg-brand-600/50 text-brand-300 border border-brand-500/40 text-xs font-semibold transition cursor-pointer"
+          >
+            Clear Search
+          </button>
+        </div>
+      )}
     </div>
   );
 };

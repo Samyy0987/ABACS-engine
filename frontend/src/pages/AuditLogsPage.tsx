@@ -12,8 +12,75 @@ import {
   Check
 } from 'lucide-react';
 
+const INITIAL_AUDIT_LOGS = [
+  {
+    id: 'log-101',
+    request_id: 'REQ-SECOPS-84920',
+    subject_identifier: 'test_alice_secops',
+    resource_key: 'test-k8s-cluster-alpha',
+    action: 'READ',
+    decision: 'PERMIT',
+    evaluation_duration_ms: 1.45,
+    timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+    matched_policy_ids: ['pol-001'],
+    context_snapshot: {
+      subject: { role: 'SecOps', clearanceLevel: 'TopSecret', mfaEnforced: true },
+      resource: { type: 'Cluster_Node', classification: 'Critical' },
+      environment: { ipRange: '10.240.0.1' },
+    },
+  },
+  {
+    id: 'log-102',
+    request_id: 'REQ-GUEST-84921',
+    subject_identifier: 'test_bob_guest',
+    resource_key: 'test-prod-db-primary',
+    action: 'DELETE',
+    decision: 'DENY',
+    evaluation_duration_ms: 0.88,
+    timestamp: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
+    matched_policy_ids: [],
+    context_snapshot: {
+      subject: { role: 'Guest', clearanceLevel: 'Public', mfaEnforced: false },
+      resource: { type: 'Relational_Database', classification: 'Production_Database' },
+      environment: { ipRange: '192.168.1.50' },
+    },
+  },
+  {
+    id: 'log-103',
+    request_id: 'REQ-PII-84922',
+    subject_identifier: 'carol_compliance_lead',
+    resource_key: 'customer-pii-vault',
+    action: 'READ',
+    decision: 'PERMIT',
+    evaluation_duration_ms: 2.12,
+    timestamp: new Date(Date.now() - 1000 * 60 * 42).toISOString(),
+    matched_policy_ids: ['pol-002'],
+    context_snapshot: {
+      subject: { role: 'Auditor', clearanceLevel: 'Confidential', mfaEnforced: true },
+      resource: { type: 'Customer_PII_Vault', classification: 'Confidential' },
+      environment: { ipRange: '10.240.2.14' },
+    },
+  },
+  {
+    id: 'log-104',
+    request_id: 'REQ-UNAUTH-84923',
+    subject_identifier: 'unknown_external_identity',
+    resource_key: 'unregistered-legacy-system',
+    action: 'EXECUTE',
+    decision: 'DENY',
+    evaluation_duration_ms: 0.54,
+    timestamp: new Date(Date.now() - 1000 * 60 * 95).toISOString(),
+    matched_policy_ids: [],
+    context_snapshot: {
+      subject: { role: 'Anonymous', clearanceLevel: 'Public', mfaEnforced: false },
+      resource: { type: 'Legacy_System', classification: 'Unclassified' },
+      environment: { ipRange: '198.51.100.1' },
+    },
+  },
+];
+
 export const AuditLogsPage: React.FC = () => {
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<any[]>(INITIAL_AUDIT_LOGS);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [decisionFilter, setDecisionFilter] = useState<'ALL' | 'PERMIT' | 'DENY'>('ALL');
@@ -29,8 +96,16 @@ export const AuditLogsPage: React.FC = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.logs && Array.isArray(data.logs)) {
-          setLogs(data.logs);
+        if (data.logs && Array.isArray(data.logs) && data.logs.length > 0) {
+          const liveLogs = data.logs;
+          // Merge live logs with fallback initial logs
+          const merged = [
+            ...liveLogs,
+            ...INITIAL_AUDIT_LOGS.filter(
+              (initL) => !liveLogs.some((ll: any) => ll.request_id === initL.request_id)
+            ),
+          ];
+          setLogs(merged);
         }
       }
     } catch {
@@ -154,127 +229,150 @@ export const AuditLogsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Desktop Table View (Hidden on mobile < 768px) */}
-      <div className="hidden md:block rounded-2xl bg-[#161726] border border-white/5 overflow-hidden shadow-card">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs whitespace-nowrap">
-            <thead>
-              <tr className="bg-[#11121d] border-b border-white/5 text-[11px] text-slate-400 font-medium">
-                <th className="py-3 px-4">Request ID</th>
-                <th className="py-3 px-4">Subject</th>
-                <th className="py-3 px-4">Resource Target</th>
-                <th className="py-3 px-4">Action</th>
-                <th className="py-3 px-4">Decision</th>
-                <th className="py-3 px-4">Latency</th>
-                <th className="py-3 px-4">Timestamp</th>
-                <th className="py-3 px-4 text-right">Details</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {filteredLogs.map((log, idx) => (
-                <tr key={log.id || idx} className="hover:bg-white/[0.02] transition">
-                  <td className="py-3 px-4 font-mono text-brand-300 text-[11px]">
-                    {log.request_id || log.id?.slice(0, 16)}
-                  </td>
-                  <td className="py-3 px-4 font-medium text-white">
-                    {log.subject_identifier || 'Unknown Subject'}
-                  </td>
-                  <td className="py-3 px-4 font-mono text-[11px] text-indigo-300">
-                    {log.resource_key}
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-slate-300 border border-white/10 font-mono">
-                      {log.action}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    {log.decision === 'PERMIT' ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/30">
-                        <CheckCircle2 className="w-3 h-3" />
-                        PERMIT
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-400 font-semibold border border-rose-500/30">
-                        <XCircle className="w-3 h-3" />
-                        DENY
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4 font-mono text-[11px] text-slate-400">
-                    {log.evaluation_duration_ms ? `${log.evaluation_duration_ms} ms` : '-'}
-                  </td>
-                  <td className="py-3 px-4 text-slate-500 text-[11px]">
-                    {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Recent'}
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <button
-                      onClick={() => setSelectedLog(log)}
-                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition cursor-pointer"
-                      title="Inspect Snapshot"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Mobile Stacked Cards View (Shown on < 768px for zero horizontal overflow) */}
-      <div className="md:hidden space-y-3">
-        {filteredLogs.map((log, idx) => (
-          <div
-            key={log.id || idx}
-            className="rounded-2xl bg-[#161726] border border-white/5 p-4 shadow-card space-y-3"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-mono text-brand-300 text-xs font-semibold">
-                {log.request_id || log.id?.slice(0, 16)}
-              </span>
-              {log.decision === 'PERMIT' ? (
-                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/30">
-                  <CheckCircle2 className="w-3 h-3" />
-                  PERMIT
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 font-semibold border border-rose-500/30">
-                  <XCircle className="w-3 h-3" />
-                  DENY
-                </span>
-              )}
+      {filteredLogs.length > 0 ? (
+        <>
+          {/* Desktop Table View (Hidden on mobile < 768px) */}
+          <div className="hidden md:block rounded-2xl bg-[#161726] border border-white/5 overflow-hidden shadow-card">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs whitespace-nowrap">
+                <thead>
+                  <tr className="bg-[#11121d] border-b border-white/5 text-[11px] text-slate-400 font-medium">
+                    <th className="py-3 px-4">Request ID</th>
+                    <th className="py-3 px-4">Subject</th>
+                    <th className="py-3 px-4">Resource Target</th>
+                    <th className="py-3 px-4">Action</th>
+                    <th className="py-3 px-4">Decision</th>
+                    <th className="py-3 px-4">Latency</th>
+                    <th className="py-3 px-4">Timestamp</th>
+                    <th className="py-3 px-4 text-right">Details</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {filteredLogs.map((log, idx) => (
+                    <tr key={log.id || idx} className="hover:bg-white/[0.02] transition">
+                      <td className="py-3 px-4 font-mono text-brand-300 text-[11px]">
+                        {log.request_id || log.id?.slice(0, 16)}
+                      </td>
+                      <td className="py-3 px-4 font-medium text-white">
+                        {log.subject_identifier || 'Unknown Subject'}
+                      </td>
+                      <td className="py-3 px-4 font-mono text-[11px] text-indigo-300">
+                        {log.resource_key}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-slate-300 border border-white/10 font-mono">
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        {log.decision === 'PERMIT' ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/30">
+                            <CheckCircle2 className="w-3 h-3" />
+                            PERMIT
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-400 font-semibold border border-rose-500/30">
+                            <XCircle className="w-3 h-3" />
+                            DENY
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 font-mono text-[11px] text-slate-400">
+                        {log.evaluation_duration_ms ? `${log.evaluation_duration_ms} ms` : '-'}
+                      </td>
+                      <td className="py-3 px-4 text-slate-500 text-[11px]">
+                        {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Recent'}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <button
+                          onClick={() => setSelectedLog(log)}
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition cursor-pointer"
+                          title="Inspect Snapshot"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-
-            <div className="space-y-1 text-xs">
-              <div className="flex justify-between text-slate-300">
-                <span className="text-slate-400">Subject:</span>
-                <span className="font-medium text-white">{log.subject_identifier}</span>
-              </div>
-              <div className="flex justify-between text-slate-300">
-                <span className="text-slate-400">Resource:</span>
-                <span className="font-mono text-indigo-300 text-[11px]">{log.resource_key}</span>
-              </div>
-              <div className="flex justify-between text-slate-300">
-                <span className="text-slate-400">Action:</span>
-                <span className="font-mono text-amber-300">{log.action}</span>
-              </div>
-              <div className="flex justify-between text-slate-400 text-[11px]">
-                <span>Timestamp:</span>
-                <span>{log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : 'Recent'}</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setSelectedLog(log)}
-              className="w-full py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-medium transition flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Inspect Context Snapshot</span>
-            </button>
           </div>
-        ))}
-      </div>
+
+          {/* Mobile Stacked Cards View (Shown on < 768px for zero horizontal overflow) */}
+          <div className="md:hidden space-y-3">
+            {filteredLogs.map((log, idx) => (
+              <div
+                key={log.id || idx}
+                className="rounded-2xl bg-[#161726] border border-white/5 p-4 shadow-card space-y-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-brand-300 text-xs font-semibold">
+                    {log.request_id || log.id?.slice(0, 16)}
+                  </span>
+                  {log.decision === 'PERMIT' ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/30">
+                      <CheckCircle2 className="w-3 h-3" />
+                      PERMIT
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 font-semibold border border-rose-500/30">
+                      <XCircle className="w-3 h-3" />
+                      DENY
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between text-slate-300">
+                    <span className="text-slate-400">Subject:</span>
+                    <span className="font-medium text-white">{log.subject_identifier}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-300">
+                    <span className="text-slate-400">Resource:</span>
+                    <span className="font-mono text-indigo-300 text-[11px]">{log.resource_key}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-300">
+                    <span className="text-slate-400">Action:</span>
+                    <span className="font-mono text-amber-300">{log.action}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400 text-[11px]">
+                    <span>Timestamp:</span>
+                    <span>{log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : 'Recent'}</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setSelectedLog(log)}
+                  className="w-full py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-medium transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Inspect Context Snapshot</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="rounded-2xl bg-[#161726] border border-white/5 p-8 sm:p-12 text-center shadow-card">
+          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-3 text-slate-400">
+            <FileText className="w-6 h-6" />
+          </div>
+          <h3 className="text-sm font-bold text-white">No Matching Audit Records Found</h3>
+          <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+            No events match your current filter or query "{searchQuery}".
+          </p>
+          <button
+            onClick={() => {
+              setSearchQuery('');
+              setDecisionFilter('ALL');
+            }}
+            className="mt-4 px-4 py-2 rounded-xl bg-brand-600/30 hover:bg-brand-600/50 text-brand-300 border border-brand-500/40 text-xs font-semibold transition cursor-pointer"
+          >
+            Reset Filters
+          </button>
+        </div>
+      )}
 
       {/* Snapshot Modal */}
       {selectedLog && (

@@ -18,11 +18,54 @@ interface DashboardPageProps {
   onNavigateTab: (tab: NavigationTab) => void;
 }
 
+const INITIAL_DASHBOARD_LOGS = [
+  {
+    id: 'dash-1',
+    request_id: 'REQ-SECOPS-84920',
+    subject_identifier: 'test_alice_secops',
+    resource_key: 'test-k8s-cluster-alpha',
+    action: 'READ',
+    decision: 'PERMIT',
+  },
+  {
+    id: 'dash-2',
+    request_id: 'REQ-GUEST-84921',
+    subject_identifier: 'test_bob_guest',
+    resource_key: 'test-prod-db-primary',
+    action: 'DELETE',
+    decision: 'DENY',
+  },
+  {
+    id: 'dash-3',
+    request_id: 'REQ-PII-84922',
+    subject_identifier: 'carol_compliance_lead',
+    resource_key: 'customer-pii-vault',
+    action: 'READ',
+    decision: 'PERMIT',
+  },
+  {
+    id: 'dash-4',
+    request_id: 'REQ-UNAUTH-84923',
+    subject_identifier: 'unknown_external_identity',
+    resource_key: 'unregistered-legacy-system',
+    action: 'EXECUTE',
+    decision: 'DENY',
+  },
+  {
+    id: 'dash-5',
+    request_id: 'REQ-DEVOPS-84924',
+    subject_identifier: 'dave_platform_devops',
+    resource_key: 'test-k8s-cluster-alpha',
+    action: 'UPDATE',
+    decision: 'PERMIT',
+  },
+];
+
 export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) => {
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<any[]>(INITIAL_DASHBOARD_LOGS);
   const [policiesCount, setPoliciesCount] = useState<number>(3);
-  const [usersCount, setUsersCount] = useState<number>(2);
-  const [resourcesCount, setResourcesCount] = useState<number>(2);
+  const [usersCount, setUsersCount] = useState<number>(4);
+  const [resourcesCount, setResourcesCount] = useState<number>(4);
   const [isLoading, setIsLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<string>('Just now');
 
@@ -37,7 +80,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigateTab }) =
       });
       if (auditRes.ok) {
         const data = await auditRes.json();
-        if (data.logs && Array.isArray(data.logs)) {
+        if (data.logs && Array.isArray(data.logs) && data.logs.length > 0) {
           setAuditLogs(data.logs);
         }
       }

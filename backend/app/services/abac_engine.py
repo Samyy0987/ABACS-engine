@@ -1,6 +1,7 @@
 import time
 import uuid
 import logging
+import ipaddress
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 from .ords_client import ORDSClient, ORDSError, get_ords_client
@@ -217,8 +218,45 @@ class ABACDecisionEngine:
                     return False
             # String or numerical comparison
             else:
-                if str(actual_value).lower() != str(expected_value).lower():
-                    return False
+                str_actual = str(actual_value).strip().lower()
+                str_expected = str(expected_value).strip().lower()
+
+                if str_actual == str_expected:
+                    continue
+
+                # CIDR / IP Network check for network and IP constraints
+                if '/' in str(expected_value) or key in ('ipRange', 'ip_range', 'client_ip', 'ip'):
+                    try:
+                        net = ipaddress.ip_network(str(expected_value).strip(), strict=False)
+                        ip = ipaddress.ip_address(str(actual_value).strip())
+                        if ip in net:
+                            continue
+                    except (ValueError, TypeError):
+                        pass
+
+                # Clearance Level comparison (e.g. Level 3+ or hierarchy)
+                if key in ('clearanceLevel', 'clearance_level', 'clearance'):
+                    # Hierarchy mapping
+                    clearance_ranks = {
+                        'public': 1,
+                        'internal': 2,
+                        'level 1': 2,
+                        'level 2': 3,
+                        'confidential': 4,
+                        'level 3': 4,
+                        'level 3+': 4,
+                        'restricted': 5,
+                        'level 4': 5,
+                        'secret': 5,
+                        'topsecret': 6,
+                        'top secret': 6,
+                    }
+                    actual_rank = clearance_ranks.get(str_actual)
+                    expected_rank = clearance_ranks.get(str_expected)
+                    if actual_rank is not None and expected_rank is not None and actual_rank >= expected_rank:
+                        continue
+
+                return False
 
         return True
 

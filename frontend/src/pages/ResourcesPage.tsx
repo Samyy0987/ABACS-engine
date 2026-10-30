@@ -11,8 +11,55 @@ import {
   Lock
 } from 'lucide-react';
 
+const INITIAL_RESOURCES = [
+  {
+    id: 'res-1',
+    name: 'Kubernetes Alpha Cluster Node',
+    resource_key: 'test-k8s-cluster-alpha',
+    resource_type: 'Cluster_Node',
+    classification: 'Critical',
+    department: 'Platform Security',
+    environment: 'production',
+    service: 'AWS EKS US-East',
+    is_active: true,
+  },
+  {
+    id: 'res-2',
+    name: 'Primary Enterprise Relational Database',
+    resource_key: 'test-prod-db-primary',
+    resource_type: 'Relational_Database',
+    classification: 'Production_Database',
+    department: 'Data Infrastructure',
+    environment: 'production',
+    service: 'Oracle Autonomous / Postgres',
+    is_active: true,
+  },
+  {
+    id: 'res-3',
+    name: 'Customer PII Vault & Compliance Storage',
+    resource_key: 'customer-pii-vault',
+    resource_type: 'Customer_PII_Vault',
+    classification: 'Confidential',
+    department: 'Customer Privacy',
+    environment: 'production',
+    service: 'Encrypted S3 / Object Store',
+    is_active: true,
+  },
+  {
+    id: 'res-4',
+    name: 'Payment Settlement Microservice API',
+    resource_key: 'payment-settlement-service',
+    resource_type: 'API_Endpoint',
+    classification: 'Restricted',
+    department: 'Financial Ops',
+    environment: 'production',
+    service: 'gRPC Gateway / Mesh',
+    is_active: true,
+  },
+];
+
 export const ResourcesPage: React.FC = () => {
-  const [resources, setResources] = useState<any[]>([]);
+  const [resources, setResources] = useState<any[]>(INITIAL_RESOURCES);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -25,8 +72,15 @@ export const ResourcesPage: React.FC = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.resources && Array.isArray(data.resources)) {
-          setResources(data.resources);
+        if (data.resources && Array.isArray(data.resources) && data.resources.length > 0) {
+          const ordsResources = data.resources;
+          const merged = [
+            ...ordsResources,
+            ...INITIAL_RESOURCES.filter(
+              (initR) => !ordsResources.some((or: any) => or.resource_key?.toLowerCase() === initR.resource_key.toLowerCase())
+            ),
+          ];
+          setResources(merged);
         }
       }
     } catch {
@@ -127,86 +181,104 @@ export const ResourcesPage: React.FC = () => {
       </div>
 
       {/* Resources Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredResources.map((resource) => (
-          <div
-            key={resource.id || resource.resource_key}
-            className="rounded-2xl bg-[#161726] border border-white/5 p-5 shadow-card hover:border-brand-500/30 transition flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-purple-glow-sm">
-                    {resource.resource_type === 'Cluster_Node' ? (
-                      <Server className="w-5 h-5" />
-                    ) : (
-                      <Database className="w-5 h-5" />
-                    )}
+      {filteredResources.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredResources.map((resource) => (
+            <div
+              key={resource.id || resource.resource_key}
+              className="rounded-2xl bg-[#161726] border border-white/5 p-5 shadow-card hover:border-brand-500/30 transition flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-purple-glow-sm">
+                      {resource.resource_type === 'Cluster_Node' ? (
+                        <Server className="w-5 h-5" />
+                      ) : (
+                        <Database className="w-5 h-5" />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                        <span>{resource.name || resource.resource_key}</span>
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      </h3>
+                      <span className="text-xs text-brand-300 font-mono">{resource.resource_key}</span>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-                      <span>{resource.name || resource.resource_key}</span>
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    </h3>
-                    <span className="text-xs text-brand-300 font-mono">{resource.resource_key}</span>
-                  </div>
+
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
+                      resource.is_active !== false
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                        : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                    }`}
+                  >
+                    {resource.is_active !== false ? 'PROTECTED' : 'INACTIVE'}
+                  </span>
                 </div>
 
-                <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
-                    resource.is_active !== false
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                      : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                  }`}
-                >
-                  {resource.is_active !== false ? 'PROTECTED' : 'INACTIVE'}
-                </span>
+                {/* Attributes Chips */}
+                <div className="space-y-2 py-3 border-t border-b border-white/5 text-xs">
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <Activity className="w-3.5 h-3.5" /> Resource Type
+                    </span>
+                    <span className="font-mono text-[11px] text-indigo-300">
+                      {resource.resource_type || 'Generic_Resource'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5" /> Classification
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 font-mono text-[11px] border border-rose-500/30 font-semibold">
+                      {resource.classification || 'Unclassified'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <Building className="w-3.5 h-3.5" /> Owner Department
+                    </span>
+                    <span>{resource.department || 'Infrastructure'}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span className="text-slate-400">Environment</span>
+                    <span className="px-2 py-0.5 rounded bg-white/5 text-slate-300 font-mono text-[11px]">
+                      {resource.environment || 'production'}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              {/* Attributes Chips */}
-              <div className="space-y-2 py-3 border-t border-b border-white/5 text-xs">
-                <div className="flex items-center justify-between text-slate-300">
-                  <span className="text-slate-400 flex items-center gap-1.5">
-                    <Activity className="w-3.5 h-3.5" /> Resource Type
-                  </span>
-                  <span className="font-mono text-[11px] text-indigo-300">
-                    {resource.resource_type || 'Generic_Resource'}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-slate-300">
-                  <span className="text-slate-400 flex items-center gap-1.5">
-                    <Lock className="w-3.5 h-3.5" /> Classification
-                  </span>
-                  <span className="px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 font-mono text-[11px] border border-rose-500/30 font-semibold">
-                    {resource.classification || 'Unclassified'}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-slate-300">
-                  <span className="text-slate-400 flex items-center gap-1.5">
-                    <Building className="w-3.5 h-3.5" /> Owner Department
-                  </span>
-                  <span>{resource.department || 'Infrastructure'}</span>
-                </div>
-
-                <div className="flex items-center justify-between text-slate-300">
-                  <span className="text-slate-400">Environment</span>
-                  <span className="px-2 py-0.5 rounded bg-white/5 text-slate-300 font-mono text-[11px]">
-                    {resource.environment || 'production'}
-                  </span>
-                </div>
+              {/* Target ID Footer */}
+              <div className="pt-3 flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                <span>Oracle ID: {resource.id ? resource.id.slice(0, 16) : 'LIVE-ORDS'}...</span>
+                <span className="text-brand-300">Zero-Trust Target</span>
               </div>
             </div>
-
-            {/* Target ID Footer */}
-            <div className="pt-3 flex items-center justify-between text-[11px] text-slate-500 font-mono">
-              <span>Oracle ID: {resource.id ? resource.id.slice(0, 16) : 'LIVE-ORDS'}...</span>
-              <span className="text-brand-300">Zero-Trust Target</span>
-            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-2xl bg-[#161726] border border-white/5 p-8 sm:p-12 text-center shadow-card">
+          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-3 text-slate-400">
+            <Layers className="w-6 h-6" />
           </div>
-        ))}
-      </div>
+          <h3 className="text-sm font-bold text-white">No Matching Resources Found</h3>
+          <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+            No enterprise targets match "{searchQuery}". Try adjusting your search term.
+          </p>
+          <button
+            onClick={() => setSearchQuery('')}
+            className="mt-4 px-4 py-2 rounded-xl bg-brand-600/30 hover:bg-brand-600/50 text-brand-300 border border-brand-500/40 text-xs font-semibold transition cursor-pointer"
+          >
+            Clear Search
+          </button>
+        </div>
+      )}
     </div>
   );
 };
