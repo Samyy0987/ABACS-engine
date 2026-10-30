@@ -20,5 +20,13 @@ dependencies = [
     "requests>=2.31.0,<3.0.0",
 ]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+exclude = ["sql*", "data*", "migrations*", "tests*"]
+
+[tool.setuptools]
+py-modules = ["run"]
+
 [tool.vercel]
 entrypoint = "run:app"
